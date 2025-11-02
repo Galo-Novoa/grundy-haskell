@@ -87,8 +87,8 @@ playGrundy = do
 gameLoop :: Board -> Int -> IO ()
 gameLoop board player
   | not (hasMoves board) = do
-      putStrLn $ "\n¡Jugador " ++ show (3 - player) ++ " Gana!"
-      putStrLn $ "Jugador " ++ show player ++ " Pierde porque no hay más movimientos posibles"
+      putStrLn $ "\n¡Jugador " ++ show (3 - player) ++ " gana!"
+      putStrLn $ "Jugador " ++ show player ++ " pierde porque no hay más movimientos posibles"
       showMenu
   | otherwise = do
       putStrLn $ "\n--- Turno del Jugador " ++ show player ++ " ---"
@@ -101,19 +101,18 @@ gameLoop board player
         (\n -> case findRow n board of 
                 Just size -> size >= 3 
                 Nothing -> False)
-        "Fila no existe o no se puede dividir (debe ser ≥ 3). Ingrese otro número:"
+        "La fila elegida no existe o no se puede dividir (debe tener más de dos monedas). Ingrese otro número:"
       
       -- Leer división con reintento
       division <- readInputWithRetry
         "Ingrese división (ej: (3,7)): "
         (\input -> case parse tuple input of [(d, "")] -> Just d; _ -> Nothing)
         (\(a, b) -> isValidMove rowNum (a, b) board)
-        "Movimiento inválido: las partes deben ser diferentes, > 0 y sumar el tamaño original. Ingrese otra división:"
+        "Movimiento inválido: Divida la fila en dos partes de diferente tamaño. Ingrese otra división:"
       
       let (a, b) = division
       case splitRow rowNum a b board of
         Just newBoard -> do
-          putStrLn "\nMovimiento realizado con éxito!"
           gameLoop newBoard (3 - player)
         Nothing -> do
           putStrLn "Error inesperado al realizar el movimiento."
@@ -123,10 +122,10 @@ gameLoop board player
 showRules :: IO ()
 showRules = do
   putStrLn "\n=== REGLAS DEL JUEGO DE GRUNDY ==="
-  putStrLn "- Dos jugadores se turnan para dividir una fila en 2 filas de diferentes tamaños"
-  putStrLn "- Las divisiones deben sumar exactamente el tamaño original"
-  putStrLn "- El juego termina cuando solo quedan filas de tamaño 1 o 2"
-  putStrLn "- Gana el último jugador que puede hacer un movimiento válido"
+  putStrLn "- En cada turno, uno de los dos jugadores elige una fila de monedas (representadas por asteriscos) y luego la divide en dos filas de diferentes tamaños."
+  putStrLn "- Debe especificar el tamaño de las dos filas nuevas, asegurándose de que ambas sean de tamaño mayor a cero y diferentes entre sí."
+  putStrLn "- El juego termina cuando solo quedan filas de tamaño 1 o 2."
+  putStrLn "- Gana el último jugador que pudo hacer un movimiento válido."
   putStrLn "\nPresione Enter para continuar..."
   _ <- getLine
   showMenu
@@ -149,7 +148,7 @@ showMenu = do
     "3" -> do
       putStrLn "¡Gracias por jugar!"
     _ -> do
-      putStrLn "Opción inválida. Por favor seleccione 1, 2 o 3."
+      putStrLn "Opción inválida. Por favor, seleccione 1, 2 o 3."
       showMenu
 
 main :: IO ()
