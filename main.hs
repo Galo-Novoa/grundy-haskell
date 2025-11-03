@@ -32,7 +32,7 @@ parseTuple input = case input of
 
 -- Busca una fila por número
 findRow :: Int -> Board -> Maybe Row
-findRow n = lookup n
+findRow = lookup
 
 -- Divide una fila en dos partes diferentes, insertando la nueva fila después de la original
 splitRow :: Int -> Int -> Int -> Board -> Maybe Board
