@@ -44,12 +44,12 @@ splitRow rowNum a b board
                 | otherwise ->
                   let -- Renumerar todo el tablero para mantener números consecutivos
                       -- Primero, reemplazar la fila dividida por las dos nuevas en la posición correcta
-                      allSizes = concatMap (\(n, s) -> 
-                        if n == rowNum 
+                      allSizes = concatMap (\(n, s) ->
+                        if n == rowNum
                           then [a, b]  -- Dividir esta fila en dos
                           else [s])     -- Mantener las otras filas
                         board
-                      
+
                       -- Crear nuevo tablero con números consecutivos 1,2,3,4...
                       newBoard = zip [1..] allSizes
                   in Just newBoard
@@ -90,14 +90,19 @@ playGrundy = do
 -- Tipos de modo de juego
 data GameMode = Original | Libre Int
 
--- Menú de selección de modo de juego
 selectGameMode :: IO GameMode
-selectGameMode = do
+selectGameMode = selectGameModeLoop ""
+
+selectGameModeLoop :: String -> IO GameMode
+selectGameModeLoop errorMsg = do
   clearScreen
   putStrLn "\n=== SELECCIÓN DE MODO DE JUEGO ==="
   putStrLn "1. Original (10 monedas iniciales)"
-  putStrLn "2. Libre (elige la cantidad inicial)"
-  putStr "\nSeleccione una opción: "
+  putStrLn "2. Libre (elige la cantidad inicial)\n"
+
+  unless (null errorMsg) $ putStrLn errorMsg
+
+  putStr "Seleccione una opción: "
   hFlush stdout
   option <- getLine
   case option of
@@ -108,12 +113,8 @@ selectGameMode = do
       input <- getLine
       case parseNumber input of
         Just n | n >= 3 -> return (Libre n)
-        _ -> do
-          putStrLn "Cantidad inválida. Debe ser un número mayor o igual a 3."
-          selectGameMode
-    _ -> do
-      putStrLn "Opción inválida. Por favor, seleccione 1 o 2."
-      selectGameMode
+        _ -> selectGameModeLoop "Cantidad inválida. Debe ser un número mayor a 2."
+    _ -> selectGameModeLoop "Opción inválida. Por favor, seleccione 1 o 2:"
 
 -- Bucle principal del juego
 gameLoop :: Board -> Int -> IO ()
@@ -126,23 +127,23 @@ gameLoop board player
       clearScreen
       putStrLn $ "\n--- Turno del Jugador " ++ show player ++ " ---"
       putStrLn $ showBoard board
-      
+
       -- Leer fila con reintento
-      rowNum <- readInputWithRetry 
-        "Elija fila: " 
+      rowNum <- readInputWithRetry
+        "Elija fila: "
         parseNumber
-        (\n -> case findRow n board of 
-                Just size -> size >= 3 
+        (\n -> case findRow n board of
+                Just size -> size >= 3
                 Nothing -> False)
         "La fila elegida no existe o no se puede dividir (debe tener más de dos monedas). Ingrese otro número:"
-      
+
       -- Leer división con reintento
       division <- readInputWithRetry
         "Ingrese división (ej: (3,7)): "
         parseTuple
         (\(a, b) -> isValidMove rowNum (a, b) board)
         "Movimiento inválido: Divida la fila en dos partes de diferente tamaño cuya suma coincida con el tamaño de la línea elegida. Ingrese otra división:"
-      
+
       let (a, b) = division
       case splitRow rowNum a b board of
         Just newBoard -> do
