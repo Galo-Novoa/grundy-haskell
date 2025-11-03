@@ -9,7 +9,7 @@ type Board = [(Int, Row)]
 
 -- Muestra el tablero de forma legible
 showBoard :: Board -> String
-showBoard board = unlines [ show n ++ " : " ++ replicate size '*' | (n, size) <- board ]
+showBoard board = unlines [ show n ++ " : " ++ replicate size '*' ++ " (" ++ show size ++ ")" | (n, size) <- board ]
 
 -- Parser simple para números usando readMaybe
 parseNumber :: String -> Maybe Int
@@ -80,9 +80,40 @@ readInputWithRetry prompt parser validator errorMsg = do
 -- Juego principal
 playGrundy :: IO ()
 playGrundy = do
-  let initialBoard = [(1, 10)]  
+  mode <- selectGameMode
+  let initialBoard = case mode of
+                      Original -> [(1, 10)]
+                      Libre n -> [(1, n)]
   putStrLn "¡Bienvenido al Juego de Grundy!"
   gameLoop initialBoard 1
+
+-- Tipos de modo de juego
+data GameMode = Original | Libre Int
+
+-- Menú de selección de modo de juego
+selectGameMode :: IO GameMode
+selectGameMode = do
+  clearScreen
+  putStrLn "\n=== SELECCIÓN DE MODO DE JUEGO ==="
+  putStrLn "1. Original (10 monedas iniciales)"
+  putStrLn "2. Libre (elige la cantidad inicial)"
+  putStr "\nSeleccione una opción: "
+  hFlush stdout
+  option <- getLine
+  case option of
+    "1" -> return Original
+    "2" -> do
+      putStr "\nIngrese la cantidad inicial de monedas: "
+      hFlush stdout
+      input <- getLine
+      case parseNumber input of
+        Just n | n >= 3 -> return (Libre n)
+        _ -> do
+          putStrLn "Cantidad inválida. Debe ser un número mayor o igual a 3."
+          selectGameMode
+    _ -> do
+      putStrLn "Opción inválida. Por favor, seleccione 1 o 2."
+      selectGameMode
 
 -- Bucle principal del juego
 gameLoop :: Board -> Int -> IO ()
@@ -110,7 +141,7 @@ gameLoop board player
         "Ingrese división (ej: (3,7)): "
         parseTuple
         (\(a, b) -> isValidMove rowNum (a, b) board)
-        "Movimiento inválido: Divida la fila en dos partes de diferente tamaño. Ingrese otra división:"
+        "Movimiento inválido: Divida la fila en dos partes de diferente tamaño cuya suma coincida con el tamaño de la línea elegida. Ingrese otra división:"
       
       let (a, b) = division
       case splitRow rowNum a b board of
@@ -145,7 +176,7 @@ showMenu = do
   case option of
     "1" -> do
       putStrLn "\nIniciando juego...\n"
-      playGrundy
+      playGrundy  -- Esto ahora llamará al menú de modos
     "2" -> showRules
     "3" -> do
       putStrLn "¡Gracias por jugar!"
