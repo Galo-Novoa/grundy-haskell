@@ -34,7 +34,7 @@ parseTuple input = case input of
 findRow :: Int -> Board -> Maybe Row
 findRow = lookup
 
--- Divide una fila en dos partes diferentes, insertando la nueva fila después de la original
+-- Divide una fila en two partes diferentes, insertando la nueva fila después de la original
 splitRow :: Int -> Int -> Int -> Board -> Maybe Board
 splitRow rowNum a b board
   | a <= 0 || b <= 0 || a == b = Nothing
@@ -99,7 +99,7 @@ selectGameModeLoop errorMsg = do
   clearScreen
   putStrLn "\n=== CONFIGURACIÓN - MODO DE JUEGO ==="
   putStrLn "1. Original (10 monedas iniciales)"
-  putStrLn "2. Libre (elige la cantidad inicial)\n"
+  putStrLn "2. Libre (elige la cantidad inicial, máximo 30 monedas)\n"
 
   unless (null errorMsg) $ putStrLn errorMsg
 
@@ -109,12 +109,13 @@ selectGameModeLoop errorMsg = do
   case option of
     "1" -> return Original
     "2" -> do
-      putStr "Ingrese la cantidad inicial de monedas: "
+      putStr "\nIngrese la cantidad inicial de monedas (3-30): "
       hFlush stdout
       input <- getLine
       case parseNumber input of
-        Just n | n >= 3 -> return (Libre n)
-        _ -> selectGameModeLoop "Cantidad inválida. Debe ser un número mayor a 2."
+        Just n | n >= 3 && n <= 30 -> return (Libre n)
+        Just n | n > 30 -> selectGameModeLoop "Demasiadas monedas! El máximo permitido es 30."
+        _ -> selectGameModeLoop "Cantidad inválida. Debe ser un número entre 3 y 30."
     _ -> selectGameModeLoop "Opción inválida. Por favor, seleccione 1 o 2:"
 
 -- Menú principal
@@ -189,6 +190,7 @@ showRules currentMode = do
   putStrLn "- Debe especificar el tamaño de las dos filas nuevas, asegurándose de que ambas sean de tamaño mayor a cero y diferentes entre sí."
   putStrLn "- El juego termina cuando solo quedan filas de tamaño 1 o 2."
   putStrLn "- Gana el último jugador que pudo hacer un movimiento válido."
+  putStrLn "- En modo Libre, la cantidad inicial de monedas puede ser entre 3 y 30."
   putStrLn "\nPresione Enter para continuar..."
   _ <- getLine
   showMenu currentMode
