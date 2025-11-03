@@ -42,15 +42,10 @@ splitRow rowNum a b board
       Nothing -> Nothing
       Just size | size /= a + b -> Nothing
                 | otherwise ->
-                  let -- Renumerar todo el tablero para mantener números consecutivos
-                      -- Primero, reemplazar la fila dividida por las dos nuevas en la posición correcta
-                      allSizes = concatMap (\(n, s) ->
+                  let allSizes = concatMap (\(n, s) ->
                         if n == rowNum
-                          then [a, b]  -- Dividir esta fila en dos
-                          else [s])     -- Mantener las otras filas
-                        board
-
-                      -- Crear nuevo tablero con números consecutivos 1,2,3,4...
+                          then [a, b]
+                          else [s]) board
                       newBoard = zip [1..] allSizes
                   in Just newBoard
 
@@ -77,26 +72,32 @@ readInputWithRetry prompt parser validator errorMsg = do
       putStrLn errorMsg
       readInputWithRetry prompt parser validator errorMsg
 
+-- Tipos de modo de juego
+data GameMode = Original | Libre Int deriving (Show)
+
+-- Mostrar modo de juego en español
+showMode :: GameMode -> String
+showMode Original = "Original (10 monedas)"
+showMode (Libre n) = "Libre (" ++ show n ++ " monedas)"
+
 -- Juego principal
-playGrundy :: IO ()
-playGrundy = do
-  mode <- selectGameMode
+playGrundy :: GameMode -> IO ()
+playGrundy mode = do
   let initialBoard = case mode of
                       Original -> [(1, 10)]
                       Libre n -> [(1, n)]
   putStrLn "¡Bienvenido al Juego de Grundy!"
-  gameLoop initialBoard 1
+  putStrLn $ "Modo: " ++ showMode mode
+  gameLoop initialBoard 1 mode
 
--- Tipos de modo de juego
-data GameMode = Original | Libre Int
-
+-- Selección de modo de juego (directa)
 selectGameMode :: IO GameMode
 selectGameMode = selectGameModeLoop ""
 
 selectGameModeLoop :: String -> IO GameMode
 selectGameModeLoop errorMsg = do
   clearScreen
-  putStrLn "\n=== SELECCIÓN DE MODO DE JUEGO ==="
+  putStrLn "\n=== CONFIGURACIÓN - MODO DE JUEGO ==="
   putStrLn "1. Original (10 monedas iniciales)"
   putStrLn "2. Libre (elige la cantidad inicial)\n"
 
@@ -108,7 +109,7 @@ selectGameModeLoop errorMsg = do
   case option of
     "1" -> return Original
     "2" -> do
-      putStr "\nIngrese la cantidad inicial de monedas: "
+      putStr "Ingrese la cantidad inicial de monedas: "
       hFlush stdout
       input <- getLine
       case parseNumber input of
@@ -116,13 +117,40 @@ selectGameModeLoop errorMsg = do
         _ -> selectGameModeLoop "Cantidad inválida. Debe ser un número mayor a 2."
     _ -> selectGameModeLoop "Opción inválida. Por favor, seleccione 1 o 2:"
 
+-- Menú principal
+showMenu :: GameMode -> IO ()
+showMenu currentMode = do
+  clearScreen
+  putStrLn "\n=== MENÚ PRINCIPAL ==="
+  putStrLn $ "Modo actual: " ++ showMode currentMode
+  putStrLn "\n1. Jugar"
+  putStrLn "2. Ver reglas"
+  putStrLn "3. Cambiar modo de juego"
+  putStrLn "4. Salir"
+  putStr "\nSeleccione una opción: "
+  hFlush stdout
+  option <- getLine
+  case option of
+    "1" -> do
+      putStrLn "\nIniciando juego...\n"
+      playGrundy currentMode
+    "2" -> showRules currentMode
+    "3" -> do
+      newMode <- selectGameMode
+      showMenu newMode  -- Pasa el nuevo modo al menú
+    "4" -> do
+      putStrLn "¡Gracias por jugar!"
+    _ -> do
+      putStrLn "Opción inválida. Seleccione entre 1 y 4."
+      showMenu currentMode
+
 -- Bucle principal del juego
-gameLoop :: Board -> Int -> IO ()
-gameLoop board player
+gameLoop :: Board -> Int -> GameMode -> IO ()
+gameLoop board player currentMode
   | not (hasMoves board) = do
       putStrLn $ "\n¡Jugador " ++ show (3 - player) ++ " gana!"
       putStrLn $ "Jugador " ++ show player ++ " pierde porque no hay más movimientos posibles"
-      showMenu
+      showMenu currentMode
   | otherwise = do
       clearScreen
       putStrLn $ "\n--- Turno del Jugador " ++ show player ++ " ---"
@@ -147,14 +175,15 @@ gameLoop board player
       let (a, b) = division
       case splitRow rowNum a b board of
         Just newBoard -> do
-          gameLoop newBoard (3 - player)
+          gameLoop newBoard (3 - player) currentMode
         Nothing -> do
           putStrLn "Error inesperado al realizar el movimiento."
-          gameLoop board player
+          gameLoop board player currentMode
 
 -- Mostrar reglas del juego
-showRules :: IO ()
-showRules = do
+showRules :: GameMode -> IO ()
+showRules currentMode = do
+  clearScreen
   putStrLn "\n=== REGLAS DEL JUEGO DE GRUNDY ==="
   putStrLn "- En cada turno, uno de los dos jugadores elige una fila de monedas (representadas por asteriscos) y luego la divide en dos filas de diferentes tamaños."
   putStrLn "- Debe especificar el tamaño de las dos filas nuevas, asegurándose de que ambas sean de tamaño mayor a cero y diferentes entre sí."
@@ -162,31 +191,10 @@ showRules = do
   putStrLn "- Gana el último jugador que pudo hacer un movimiento válido."
   putStrLn "\nPresione Enter para continuar..."
   _ <- getLine
-  showMenu
-
--- Menú principal
-showMenu :: IO ()
-showMenu = do
-  putStrLn "\n=== MENÚ PRINCIPAL ==="
-  putStrLn "1. Jugar"
-  putStrLn "2. Ver reglas"
-  putStrLn "3. Salir"
-  putStr "\nSeleccione una opción: "
-  hFlush stdout
-  option <- getLine
-  case option of
-    "1" -> do
-      putStrLn "\nIniciando juego...\n"
-      playGrundy  -- Esto ahora llamará al menú de modos
-    "2" -> showRules
-    "3" -> do
-      putStrLn "¡Gracias por jugar!"
-    _ -> do
-      putStrLn "Opción inválida. Por favor, seleccione 1, 2 o 3."
-      showMenu
+  showMenu currentMode
 
 main :: IO ()
 main = do
   putStrLn "\nJUEGO DE GRUNDY"
   putStrLn "==============="
-  showMenu
+  showMenu Original  -- Modo inicial por defecto
