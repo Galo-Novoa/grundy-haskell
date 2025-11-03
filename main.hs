@@ -2,6 +2,7 @@ import Data.Char
 import Control.Monad
 import System.IO (hFlush, stdout)
 import Text.Read (readMaybe)
+import System.Console.ANSI (clearScreen)
 
 type Row = Int
 type Board = [(Int, Row)]
@@ -91,6 +92,7 @@ gameLoop board player
       putStrLn $ "Jugador " ++ show player ++ " pierde porque no hay más movimientos posibles"
       showMenu
   | otherwise = do
+      clearScreen
       putStrLn $ "\n--- Turno del Jugador " ++ show player ++ " ---"
       putStrLn $ showBoard board
       
