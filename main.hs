@@ -1,8 +1,7 @@
-import Parsing
 import Data.Char
 import Control.Monad
-import Control.Applicative ((<|>))
 import System.IO (hFlush, stdout)
+import Text.Read (readMaybe)
 
 type Row = Int
 type Board = [(Int, Row)]
@@ -11,19 +10,24 @@ type Board = [(Int, Row)]
 showBoard :: Board -> String
 showBoard board = unlines [ show n ++ " : " ++ replicate size '*' | (n, size) <- board ]
 
--- Parser para números
-number :: Parser Int
-number = token nat
+-- Parser simple para números usando readMaybe
+parseNumber :: String -> Maybe Int
+parseNumber input = case reads input of
+                     [(n, "")] -> Just n
+                     _ -> Nothing
 
--- Parser para tuplas del tipo (a,b)
-tuple :: Parser (Int, Int)
-tuple = do
-  symbol "("
-  a <- number
-  symbol ","
-  b <- number
-  symbol ")"
-  return (a, b)
+-- Parser simple para tuplas del tipo (a,b)
+parseTuple :: String -> Maybe (Int, Int)
+parseTuple input = case input of
+                    '(':rest -> case span (/= ',') rest of
+                                 (aStr, ',':bRest) -> case span (/= ')') bRest of
+                                                      (bStr, ")") -> do
+                                                        a <- parseNumber aStr
+                                                        b <- parseNumber bStr
+                                                        return (a, b)
+                                                      _ -> Nothing
+                                 _ -> Nothing
+                    _ -> Nothing
 
 -- Busca una fila por número
 findRow :: Int -> Board -> Maybe Row
@@ -60,16 +64,12 @@ isValidMove rowNum (a, b) board =
     Just size -> a > 0 && b > 0 && a /= b && a + b == size && size >= 3
     Nothing -> False
 
--- Función para leer input con soporte para backspace
-readLineWithBackspace :: IO String
-readLineWithBackspace = getLine
-
 -- Lee input con reintento en caso de error
 readInputWithRetry :: String -> (String -> Maybe a) -> (a -> Bool) -> String -> IO a
 readInputWithRetry prompt parser validator errorMsg = do
   putStr prompt
   hFlush stdout
-  input <- readLineWithBackspace
+  input <- getLine
   case parser input of
     Just value | validator value -> return value
     _ -> do
@@ -97,7 +97,7 @@ gameLoop board player
       -- Leer fila con reintento
       rowNum <- readInputWithRetry 
         "Elija fila: " 
-        (\input -> case parse number input of [(n, "")] -> Just n; _ -> Nothing)
+        parseNumber
         (\n -> case findRow n board of 
                 Just size -> size >= 3 
                 Nothing -> False)
@@ -106,7 +106,7 @@ gameLoop board player
       -- Leer división con reintento
       division <- readInputWithRetry
         "Ingrese división (ej: (3,7)): "
-        (\input -> case parse tuple input of [(d, "")] -> Just d; _ -> Nothing)
+        parseTuple
         (\(a, b) -> isValidMove rowNum (a, b) board)
         "Movimiento inválido: Divida la fila en dos partes de diferente tamaño. Ingrese otra división:"
       
