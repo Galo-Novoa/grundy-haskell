@@ -1,5 +1,4 @@
 import Data.Char
-import Control.Monad
 import System.IO (hFlush, stdout)
 import Text.Read (readMaybe)
 import System.Console.ANSI (clearScreen)
@@ -101,7 +100,10 @@ selectGameModeLoop errorMsg = do
   putStrLn "1. Original (10 monedas iniciales)"
   putStrLn "2. Libre (elige la cantidad inicial, máximo 30 monedas)\n"
 
-  unless (null errorMsg) $ putStrLn errorMsg
+  -- Reemplazo de unless
+  if not (null errorMsg) 
+    then putStrLn errorMsg
+    else return ()
 
   putStr "Seleccione una opción: "
   hFlush stdout
@@ -158,9 +160,10 @@ gameLoop board player currentMode firstMove =
       putStrLn $ "\n--- Turno del Jugador " ++ show player ++ " ---"
       putStrLn $ showBoard board
       
-      -- Solo mostrar el mensaje de 'q' en el primer movimiento
-      when firstMove $ do
-        putStrLn "(Presione 'q' para volver al menú)\n"
+      -- Reemplazo de when - Solo mostrar el mensaje de 'q' en el primer movimiento
+      if firstMove 
+        then putStrLn "(Presione 'q' para volver al menú)\n"
+        else return ()
 
       -- Leer fila con reintento
       putStr "Elija fila: "
