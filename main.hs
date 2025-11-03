@@ -34,7 +34,7 @@ parseTuple input = case input of
 findRow :: Int -> Board -> Maybe Row
 findRow = lookup
 
--- Divide una fila en two partes diferentes, insertando la nueva fila después de la original
+-- Divide una fila en dos partes diferentes, insertando la nueva fila después de la original
 splitRow :: Int -> Int -> Int -> Board -> Maybe Board
 splitRow rowNum a b board
   | a <= 0 || b <= 0 || a == b = Nothing
@@ -88,7 +88,7 @@ playGrundy mode = do
                       Libre n -> [(1, n)]
   putStrLn "¡Bienvenido al Juego de Grundy!"
   putStrLn $ "Modo: " ++ showMode mode
-  gameLoop initialBoard 1 mode
+  gameLoop initialBoard 1 mode True  -- Agregar True para primer movimiento
 
 -- Selección de modo de juego (directa)
 selectGameMode :: IO GameMode
@@ -138,7 +138,7 @@ showMenu currentMode = do
     "2" -> showRules currentMode
     "3" -> do
       newMode <- selectGameMode
-      showMenu newMode  -- Pasa el nuevo modo al menú
+      showMenu newMode
     "4" -> do
       putStrLn "¡Gracias por jugar!"
     _ -> do
@@ -146,40 +146,52 @@ showMenu currentMode = do
       showMenu currentMode
 
 -- Bucle principal del juego
-gameLoop :: Board -> Int -> GameMode -> IO ()
-gameLoop board player currentMode
-  | not (hasMoves board) = do
+gameLoop :: Board -> Int -> GameMode -> Bool -> IO ()
+gameLoop board player currentMode firstMove =
+  if not (hasMoves board)
+    then do
       putStrLn $ "\n¡Jugador " ++ show (3 - player) ++ " gana!"
       putStrLn $ "Jugador " ++ show player ++ " pierde porque no hay más movimientos posibles"
       showMenu currentMode
-  | otherwise = do
+    else do
       clearScreen
       putStrLn $ "\n--- Turno del Jugador " ++ show player ++ " ---"
       putStrLn $ showBoard board
+      
+      -- Solo mostrar el mensaje de 'q' en el primer movimiento
+      when firstMove $ do
+        putStrLn "(Presione 'q' para volver al menú)\n"
 
       -- Leer fila con reintento
-      rowNum <- readInputWithRetry
-        "Elija fila: "
-        parseNumber
-        (\n -> case findRow n board of
-                Just size -> size >= 3
-                Nothing -> False)
-        "La fila elegida no existe o no se puede dividir (debe tener más de dos monedas). Ingrese otro número:"
-
-      -- Leer división con reintento
-      division <- readInputWithRetry
-        "Ingrese división (ej: (3,7)): "
-        parseTuple
-        (\(a, b) -> isValidMove rowNum (a, b) board)
-        "Movimiento inválido: Divida la fila en dos partes de diferente tamaño cuya suma coincida con el tamaño de la línea elegida. Ingrese otra división:"
-
-      let (a, b) = division
-      case splitRow rowNum a b board of
-        Just newBoard -> do
-          gameLoop newBoard (3 - player) currentMode
-        Nothing -> do
-          putStrLn "Error inesperado al realizar el movimiento."
-          gameLoop board player currentMode
+      putStr "Elija fila: "
+      hFlush stdout
+      input <- getLine
+      case input of
+        "q" -> showMenu currentMode  -- Salir con 'q'
+        _ -> case parseNumber input of
+          Just rowNum | case findRow rowNum board of
+                         Just size -> size >= 3
+                         Nothing -> False -> do
+            -- Leer división con reintento
+            putStr "Ingrese división (ej: (3,7)): "
+            hFlush stdout
+            divisionInput <- getLine
+            case divisionInput of
+              "q" -> showMenu currentMode  -- Salir con 'q'
+              _ -> case parseTuple divisionInput of
+                Just division | isValidMove rowNum division board -> do
+                  let (a, b) = division
+                  case splitRow rowNum a b board of
+                    Just newBoard -> gameLoop newBoard (3 - player) currentMode False  -- No es primer movimiento
+                    Nothing -> do
+                      putStrLn "Error inesperado al realizar el movimiento."
+                      gameLoop board player currentMode False
+                _ -> do
+                  putStrLn "Movimiento inválido. Divida la fila en dos partes de diferente tamaño cuya suma coincida con el tamaño de la línea elegida."
+                  gameLoop board player currentMode False
+          _ -> do
+            putStrLn "La fila elegida no existe o no se puede dividir (debe tener más de dos monedas)."
+            gameLoop board player currentMode False
 
 -- Mostrar reglas del juego
 showRules :: GameMode -> IO ()
