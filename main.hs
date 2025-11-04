@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use when" #-}
 import Data.Char
 import System.IO (hFlush, stdout)
 import Text.Read (readMaybe)
@@ -87,7 +89,7 @@ playGrundy mode = do
                       Libre n -> [(1, n)]
   putStrLn "¡Bienvenido al Juego de Grundy!"
   putStrLn $ "Modo: " ++ showMode mode
-  gameLoop initialBoard 1 mode True  -- Agregar True para primer movimiento
+  gameLoop initialBoard 1 mode True ""  -- Mensaje vacío inicial
 
 -- Selección de modo de juego (directa)
 selectGameMode :: IO GameMode
@@ -98,9 +100,9 @@ selectGameModeLoop errorMsg = do
   clearScreen
   putStrLn "\n=== CONFIGURACIÓN - MODO DE JUEGO ==="
   putStrLn "1. Original (10 monedas iniciales)"
-  putStrLn "2. Libre (elige la cantidad inicial, máximo 30 monedas)\n"
+  putStrLn "2. Libre (elige la cantidad inicial)\n"
 
-  -- Reemplazo de unless
+  -- Mostrar mensaje de error justo antes del input
   if not (null errorMsg) 
     then putStrLn errorMsg
     else return ()
@@ -111,21 +113,27 @@ selectGameModeLoop errorMsg = do
   case option of
     "1" -> return Original
     "2" -> do
-      putStr "\nIngrese la cantidad inicial de monedas (3-30): "
+      putStr "\nIngrese la cantidad inicial de monedas: "
       hFlush stdout
       input <- getLine
       case parseNumber input of
         Just n | n >= 3 && n <= 30 -> return (Libre n)
         Just n | n > 30 -> selectGameModeLoop "Demasiadas monedas! El máximo permitido es 30."
         _ -> selectGameModeLoop "Cantidad inválida. Debe ser un número entre 3 y 30."
-    _ -> selectGameModeLoop "Opción inválida. Por favor, seleccione 1 o 2:"
+    _ -> selectGameModeLoop "Opción inválida. Seleccione 1 o 2."
 
 -- Menú principal
-showMenu :: GameMode -> IO ()
-showMenu currentMode = do
+showMenu :: GameMode -> String -> IO ()
+showMenu currentMode message = do
   clearScreen
   putStrLn "\n=== MENÚ PRINCIPAL ==="
   putStrLn $ "Modo actual: " ++ showMode currentMode
+  
+  -- Mostrar mensaje si no está vacío
+  if not (null message)
+    then putStrLn $ "\n" ++ message
+    else return ()
+  
   putStrLn "\n1. Jugar"
   putStrLn "2. Ver reglas"
   putStrLn "3. Cambiar modo de juego"
@@ -140,61 +148,61 @@ showMenu currentMode = do
     "2" -> showRules currentMode
     "3" -> do
       newMode <- selectGameMode
-      showMenu newMode
+      showMenu newMode ""
     "4" -> do
-      putStrLn "¡Gracias por jugar!"
+      putStrLn "¡Gracias por jugar!\n"
     _ -> do
-      putStrLn "Opción inválida. Seleccione entre 1 y 4."
-      showMenu currentMode
+      showMenu currentMode "Opción inválida. Seleccione entre 1 y 4."
 
--- Bucle principal del juego
-gameLoop :: Board -> Int -> GameMode -> Bool -> IO ()
-gameLoop board player currentMode firstMove =
+-- Bucle principal del juego (versión corregida)
+gameLoop :: Board -> Int -> GameMode -> Bool -> String -> IO ()
+gameLoop board player currentMode firstMove errorMsg = do
   if not (hasMoves board)
     then do
       putStrLn $ "\n¡Jugador " ++ show (3 - player) ++ " gana!"
       putStrLn $ "Jugador " ++ show player ++ " pierde porque no hay más movimientos posibles"
-      showMenu currentMode
+      putStrLn "\nPresione Enter para volver al menú..."
+      _ <- getLine
+      showMenu currentMode ""
     else do
       clearScreen
       putStrLn $ "\n--- Turno del Jugador " ++ show player ++ " ---"
       putStrLn $ showBoard board
       
-      -- Reemplazo de when - Solo mostrar el mensaje de 'q' en el primer movimiento
+      -- Solo mostrar el mensaje de 'q' en el primer movimiento
       if firstMove 
-        then putStrLn "(Presione 'q' para volver al menú)\n"
+        then putStrLn "(Presione 'q' en cualquier momento de la partida para volver al menú)\n"
         else return ()
 
-      -- Leer fila con reintento
+      -- Mostrar mensaje de error si existe
+      if not (null errorMsg)
+        then putStrLn errorMsg
+        else return ()
+
+      -- Leer fila
       putStr "Elija fila: "
       hFlush stdout
       input <- getLine
       case input of
-        "q" -> showMenu currentMode  -- Salir con 'q'
+        "q" -> showMenu currentMode ""
         _ -> case parseNumber input of
           Just rowNum | case findRow rowNum board of
                          Just size -> size >= 3
                          Nothing -> False -> do
-            -- Leer división con reintento
+            -- Leer división
             putStr "Ingrese división (ej: (3,7)): "
             hFlush stdout
             divisionInput <- getLine
             case divisionInput of
-              "q" -> showMenu currentMode  -- Salir con 'q'
+              "q" -> showMenu currentMode ""
               _ -> case parseTuple divisionInput of
                 Just division | isValidMove rowNum division board -> do
                   let (a, b) = division
                   case splitRow rowNum a b board of
-                    Just newBoard -> gameLoop newBoard (3 - player) currentMode False  -- No es primer movimiento
-                    Nothing -> do
-                      putStrLn "Error inesperado al realizar el movimiento."
-                      gameLoop board player currentMode False
-                _ -> do
-                  putStrLn "Movimiento inválido. Divida la fila en dos partes de diferente tamaño cuya suma coincida con el tamaño de la línea elegida."
-                  gameLoop board player currentMode False
-          _ -> do
-            putStrLn "La fila elegida no existe o no se puede dividir (debe tener más de dos monedas)."
-            gameLoop board player currentMode False
+                    Just newBoard -> gameLoop newBoard (3 - player) currentMode False ""
+                    Nothing -> gameLoop board player currentMode False "Error inesperado al realizar el movimiento."
+                _ -> gameLoop board player currentMode False "Movimiento inválido. Divida la fila en dos partes de diferente tamaño cuya suma coincida con el tamaño de la línea elegida."
+          _ -> gameLoop board player currentMode False "La fila elegida no existe o no se puede dividir (debe tener más de dos monedas)."
 
 -- Mostrar reglas del juego
 showRules :: GameMode -> IO ()
@@ -206,12 +214,12 @@ showRules currentMode = do
   putStrLn "- El juego termina cuando solo quedan filas de tamaño 1 o 2."
   putStrLn "- Gana el último jugador que pudo hacer un movimiento válido."
   putStrLn "- En modo Libre, la cantidad inicial de monedas puede ser entre 3 y 30."
-  putStrLn "\nPresione Enter para continuar..."
+  putStrLn "\nPresione Enter para volver al menú..."
   _ <- getLine
-  showMenu currentMode
+  showMenu currentMode ""
 
 main :: IO ()
 main = do
   putStrLn "\nJUEGO DE GRUNDY"
   putStrLn "==============="
-  showMenu Original  -- Modo inicial por defecto
+  showMenu Original ""  -- Mensaje vacío inicial
