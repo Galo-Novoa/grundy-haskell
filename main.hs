@@ -74,14 +74,14 @@ readInputWithRetry prompt parser validator errorMsg = do
       readInputWithRetry prompt parser validator errorMsg
 
 -- Tipos de modo de juego
-data GameMode = Original | Libre Int deriving (Show)
+data GameMode = Original | Libre Int deriving (Show, Read)
 
 -- Mostrar modo de juego en español
 showMode :: GameMode -> String
 showMode Original = "Original (10 monedas)"
 showMode (Libre n) = "Libre (" ++ show n ++ " monedas)"
 
--- Juego principal
+-- Función principal para jugar
 playGrundy :: GameMode -> IO ()
 playGrundy mode = do
   let initialBoard = case mode of
@@ -89,7 +89,8 @@ playGrundy mode = do
                       Libre n -> [(1, n)]
   putStrLn "¡Bienvenido al Juego de Grundy!"
   putStrLn $ "Modo: " ++ showMode mode
-  gameLoop initialBoard 1 mode True ""  -- Mensaje vacío inicial
+  let initialState = [show initialBoard, "1", show mode, "True", "", "-1"]
+  gameLoop initialState
 
 -- Selección de modo de juego (directa)
 selectGameMode :: IO GameMode
@@ -154,9 +155,15 @@ showMenu currentMode message = do
     _ -> do
       showMenu currentMode "Opción inválida. Seleccione entre 1 y 4."
 
--- Bucle principal del juego (versión simple)
-gameLoop :: Board -> Int -> GameMode -> Bool -> String -> IO ()
-gameLoop board player currentMode firstMove errorMsg = do
+-- Bucle principal del juego (versión con lista simple)
+gameLoop :: [String] -> IO ()
+gameLoop [boardStr, playerStr, modeStr, firstMoveStr, errorMsg, selectedRowStr] = do
+  let board = read boardStr :: Board
+      player = read playerStr :: Int
+      currentMode = read modeStr :: GameMode
+      firstMove = read firstMoveStr :: Bool
+      selectedRow = read selectedRowStr :: Int
+  
   if not (hasMoves board)
     then do
       putStrLn $ "\n¡Jugador " ++ show (3 - player) ++ " gana!"
@@ -169,17 +176,14 @@ gameLoop board player currentMode firstMove errorMsg = do
       putStrLn $ "\n--- Turno del Jugador " ++ show player ++ " ---"
       putStrLn $ showBoard board
       
-      -- Solo mostrar el mensaje de 'q' en el primer movimiento
       if firstMove 
         then putStrLn "(Presione 'q' en cualquier momento de la partida para volver al menú)\n"
         else return ()
 
-      -- Mostrar mensaje de error si existe
       if not (null errorMsg)
         then putStrLn errorMsg
         else return ()
 
-      -- Leer fila
       putStr "Elija fila: "
       hFlush stdout
       input <- getLine
@@ -188,34 +192,45 @@ gameLoop board player currentMode firstMove errorMsg = do
         _ -> case parseNumber input of
           Just rowNum | case findRow rowNum board of
                          Just size -> size >= 3
-                         Nothing -> False -> do
-            -- Leer división - si hay error, volvemos a pedir división SIN perder la fila
-            let askDivision errorMsgDiv = do
-                  clearScreen  -- Limpiar pantalla antes de mostrar error
-                  putStrLn $ "\n--- Turno del Jugador " ++ show player ++ " ---"
-                  putStrLn $ showBoard board
-                  putStrLn $ "Fila seleccionada: " ++ show rowNum
-                  
-                  -- Mostrar mensaje de error de división si existe
-                  if not (null errorMsgDiv)
-                    then putStrLn errorMsgDiv
-                    else return ()
-                  
-                  putStr "Ingrese división (ej: (3,7)): "
-                  hFlush stdout
-                  divisionInput <- getLine
-                  case divisionInput of
-                    "q" -> showMenu currentMode ""
-                    _ -> case parseTuple divisionInput of
-                      Just division | isValidMove rowNum division board -> do
-                        let (a, b) = division
-                        case splitRow rowNum a b board of
-                          Just newBoard -> gameLoop newBoard (3 - player) currentMode False ""
-                          Nothing -> askDivision "Error inesperado al realizar el movimiento."
-                      _ -> askDivision "Movimiento inválido. Divida la fila en dos partes de diferente tamaño cuya suma coincida con el tamaño de la línea elegida."
-            
-            askDivision ""  -- Iniciar sin mensaje de error
-          _ -> gameLoop board player currentMode False "La fila elegida no existe o no se puede dividir (debe tener más de dos monedas)."
+                         Nothing -> False -> 
+            -- Pasar a askDivision con la fila seleccionada
+            askDivision [boardStr, playerStr, modeStr, "False", "", show rowNum]
+          _ -> 
+            gameLoop [boardStr, playerStr, modeStr, "False", "La fila elegida no existe o no se puede dividir (debe tener más de dos monedas).", "-1"]
+
+-- Función para manejar la división
+askDivision :: [String] -> IO ()
+askDivision [boardStr, playerStr, modeStr, firstMoveStr, errorMsg, selectedRowStr] = do
+  let board = read boardStr :: Board
+      player = read playerStr :: Int
+      currentMode = read modeStr :: GameMode
+      rowNum = read selectedRowStr :: Int
+  
+  clearScreen
+  putStrLn $ "\n--- Turno del Jugador " ++ show player ++ " ---"
+  putStrLn $ showBoard board
+  putStrLn $ "Fila seleccionada: " ++ show rowNum
+  
+  if not (null errorMsg)
+    then putStrLn errorMsg
+    else return ()
+  
+  putStr "Ingrese división (ej: (3,7)): "
+  hFlush stdout
+  divisionInput <- getLine
+  case divisionInput of
+    "q" -> showMenu currentMode ""
+    _ -> case parseTuple divisionInput of
+      Just division | isValidMove rowNum division board -> do
+        let (a, b) = division
+        case splitRow rowNum a b board of
+          Just newBoard -> 
+            let newState = [show newBoard, show (3 - player), modeStr, "False", "", "-1"]
+            in gameLoop newState
+          Nothing -> 
+            askDivision [boardStr, playerStr, modeStr, firstMoveStr, "Error inesperado al realizar el movimiento.", selectedRowStr]
+      _ -> 
+        askDivision [boardStr, playerStr, modeStr, firstMoveStr, "Movimiento inválido. Divida la fila en dos partes de diferente tamaño cuya suma coincida con el tamaño de la línea elegida.", selectedRowStr]
 
 -- Mostrar reglas del juego
 showRules :: GameMode -> IO ()
