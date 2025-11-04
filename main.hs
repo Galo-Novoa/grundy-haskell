@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use when" #-}
 import Data.Char
 import System.IO (hFlush, stdout)
 import Text.Read (readMaybe)
