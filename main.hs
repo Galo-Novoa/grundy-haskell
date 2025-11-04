@@ -154,7 +154,7 @@ showMenu currentMode message = do
     _ -> do
       showMenu currentMode "Opción inválida. Seleccione entre 1 y 4."
 
--- Bucle principal del juego (versión corregida)
+-- Bucle principal del juego (versión simple)
 gameLoop :: Board -> Int -> GameMode -> Bool -> String -> IO ()
 gameLoop board player currentMode firstMove errorMsg = do
   if not (hasMoves board)
@@ -189,19 +189,32 @@ gameLoop board player currentMode firstMove errorMsg = do
           Just rowNum | case findRow rowNum board of
                          Just size -> size >= 3
                          Nothing -> False -> do
-            -- Leer división
-            putStr "Ingrese división (ej: (3,7)): "
-            hFlush stdout
-            divisionInput <- getLine
-            case divisionInput of
-              "q" -> showMenu currentMode ""
-              _ -> case parseTuple divisionInput of
-                Just division | isValidMove rowNum division board -> do
-                  let (a, b) = division
-                  case splitRow rowNum a b board of
-                    Just newBoard -> gameLoop newBoard (3 - player) currentMode False ""
-                    Nothing -> gameLoop board player currentMode False "Error inesperado al realizar el movimiento."
-                _ -> gameLoop board player currentMode False "Movimiento inválido. Divida la fila en dos partes de diferente tamaño cuya suma coincida con el tamaño de la línea elegida."
+            -- Leer división - si hay error, volvemos a pedir división SIN perder la fila
+            let askDivision errorMsgDiv = do
+                  clearScreen  -- Limpiar pantalla antes de mostrar error
+                  putStrLn $ "\n--- Turno del Jugador " ++ show player ++ " ---"
+                  putStrLn $ showBoard board
+                  putStrLn $ "Fila seleccionada: " ++ show rowNum
+                  
+                  -- Mostrar mensaje de error de división si existe
+                  if not (null errorMsgDiv)
+                    then putStrLn errorMsgDiv
+                    else return ()
+                  
+                  putStr "Ingrese división (ej: (3,7)): "
+                  hFlush stdout
+                  divisionInput <- getLine
+                  case divisionInput of
+                    "q" -> showMenu currentMode ""
+                    _ -> case parseTuple divisionInput of
+                      Just division | isValidMove rowNum division board -> do
+                        let (a, b) = division
+                        case splitRow rowNum a b board of
+                          Just newBoard -> gameLoop newBoard (3 - player) currentMode False ""
+                          Nothing -> askDivision "Error inesperado al realizar el movimiento."
+                      _ -> askDivision "Movimiento inválido. Divida la fila en dos partes de diferente tamaño cuya suma coincida con el tamaño de la línea elegida."
+            
+            askDivision ""  -- Iniciar sin mensaje de error
           _ -> gameLoop board player currentMode False "La fila elegida no existe o no se puede dividir (debe tener más de dos monedas)."
 
 -- Mostrar reglas del juego
