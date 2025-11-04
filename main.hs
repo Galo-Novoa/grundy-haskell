@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use when" #-}
 import Data.Char
 import System.IO (hFlush, stdout)
 import Text.Read (readMaybe)
@@ -8,17 +6,14 @@ import System.Console.ANSI (clearScreen)
 type Row = Int
 type Board = [(Int, Row)]
 
--- Muestra el tablero de forma legible
 showBoard :: Board -> String
 showBoard board = unlines [ show n ++ " : " ++ replicate size '*' ++ " (" ++ show size ++ ")" | (n, size) <- board ]
 
--- Parser simple para números usando readMaybe
 parseNumber :: String -> Maybe Int
 parseNumber input = case reads input of
                      [(n, "")] -> Just n
                      _ -> Nothing
 
--- Parser simple para tuplas del tipo (a,b)
 parseTuple :: String -> Maybe (Int, Int)
 parseTuple input = case input of
                     '(':rest -> case span (/= ',') rest of
@@ -31,11 +26,9 @@ parseTuple input = case input of
                                  _ -> Nothing
                     _ -> Nothing
 
--- Busca una fila por número
 findRow :: Int -> Board -> Maybe Row
 findRow = lookup
 
--- Divide una fila en dos partes diferentes, insertando la nueva fila después de la original
 splitRow :: Int -> Int -> Int -> Board -> Maybe Board
 splitRow rowNum a b board
   | a <= 0 || b <= 0 || a == b = Nothing
@@ -50,18 +43,15 @@ splitRow rowNum a b board
                       newBoard = zip [1..] allSizes
                   in Just newBoard
 
--- Comprueba si quedan movimientos posibles
 hasMoves :: Board -> Bool
 hasMoves = any (\row -> snd row >= 3)
 
--- Verifica si el movimiento es válido según las reglas del juego
 isValidMove :: Int -> (Int, Int) -> Board -> Bool
 isValidMove rowNum (a, b) board =
   case findRow rowNum board of
     Just size -> a > 0 && b > 0 && a /= b && a + b == size && size >= 3
     Nothing -> False
 
--- Lee input con reintento en caso de error
 readInputWithRetry :: String -> (String -> Maybe a) -> (a -> Bool) -> String -> IO a
 readInputWithRetry prompt parser validator errorMsg = do
   putStr prompt
@@ -73,15 +63,12 @@ readInputWithRetry prompt parser validator errorMsg = do
       putStrLn errorMsg
       readInputWithRetry prompt parser validator errorMsg
 
--- Tipos de modo de juego
 data GameMode = Original | Libre Int deriving (Show, Read)
 
--- Mostrar modo de juego en español
 showMode :: GameMode -> String
 showMode Original = "Original (10 monedas)"
 showMode (Libre n) = "Libre (" ++ show n ++ " monedas)"
 
--- Función principal para jugar
 playGrundy :: GameMode -> IO ()
 playGrundy mode = do
   let initialBoard = case mode of
@@ -92,7 +79,6 @@ playGrundy mode = do
   let initialState = [show initialBoard, "1", show mode, "True", "", "-1"]
   gameLoop initialState
 
--- Selección de modo de juego (directa)
 selectGameMode :: IO GameMode
 selectGameMode = selectGameModeLoop ""
 
@@ -103,12 +89,11 @@ selectGameModeLoop errorMsg = do
   putStrLn "1. Original (10 monedas iniciales)"
   putStrLn "2. Libre (elige la cantidad inicial)\n"
 
-  -- Mostrar mensaje de error justo antes del input
   if not (null errorMsg) 
     then putStrLn errorMsg
     else return ()
 
-  putStr "Seleccione una opción: "
+  putStr "Seleccione un modo de juego: "
   hFlush stdout
   option <- getLine
   case option of
@@ -123,14 +108,12 @@ selectGameModeLoop errorMsg = do
         _ -> selectGameModeLoop "Cantidad inválida. Debe ser un número entre 3 y 30."
     _ -> selectGameModeLoop "Opción inválida. Seleccione 1 o 2."
 
--- Menú principal
 showMenu :: GameMode -> String -> IO ()
 showMenu currentMode message = do
   clearScreen
   putStrLn "\n=== MENÚ PRINCIPAL ==="
   putStrLn $ "Modo actual: " ++ showMode currentMode
   
-  -- Mostrar mensaje si no está vacío
   if not (null message)
     then putStrLn $ "\n" ++ message
     else return ()
@@ -155,7 +138,6 @@ showMenu currentMode message = do
     _ -> do
       showMenu currentMode "Opción inválida. Seleccione entre 1 y 4."
 
--- Bucle principal del juego (versión con lista simple)
 gameLoop :: [String] -> IO ()
 gameLoop [boardStr, playerStr, modeStr, firstMoveStr, errorMsg, selectedRowStr] = do
   let board = read boardStr :: Board
@@ -177,7 +159,7 @@ gameLoop [boardStr, playerStr, modeStr, firstMoveStr, errorMsg, selectedRowStr] 
       putStrLn $ showBoard board
       
       if firstMove 
-        then putStrLn "(Presione 'q' en cualquier momento de la partida para volver al menú)\n"
+        then putStrLn "(Ingrese 'q' en cualquier momento de la partida para volver al menú)\n"
         else return ()
 
       if not (null errorMsg)
@@ -193,12 +175,10 @@ gameLoop [boardStr, playerStr, modeStr, firstMoveStr, errorMsg, selectedRowStr] 
           Just rowNum | case findRow rowNum board of
                          Just size -> size >= 3
                          Nothing -> False -> 
-            -- Pasar a askDivision con la fila seleccionada
             askDivision [boardStr, playerStr, modeStr, "False", "", show rowNum]
           _ -> 
             gameLoop [boardStr, playerStr, modeStr, "False", "La fila elegida no existe o no se puede dividir (debe tener más de dos monedas).", "-1"]
 
--- Función para manejar la división
 askDivision :: [String] -> IO ()
 askDivision [boardStr, playerStr, modeStr, firstMoveStr, errorMsg, selectedRowStr] = do
   let board = read boardStr :: Board
@@ -232,7 +212,6 @@ askDivision [boardStr, playerStr, modeStr, firstMoveStr, errorMsg, selectedRowSt
       _ -> 
         askDivision [boardStr, playerStr, modeStr, firstMoveStr, "Movimiento inválido. Divida la fila en dos partes de diferente tamaño cuya suma coincida con el tamaño de la línea elegida.", selectedRowStr]
 
--- Mostrar reglas del juego
 showRules :: GameMode -> IO ()
 showRules currentMode = do
   clearScreen
@@ -250,4 +229,4 @@ main :: IO ()
 main = do
   putStrLn "\nJUEGO DE GRUNDY"
   putStrLn "==============="
-  showMenu Original ""  -- Mensaje vacío inicial
+  showMenu Original ""
