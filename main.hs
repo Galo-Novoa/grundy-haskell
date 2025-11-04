@@ -11,19 +11,19 @@ showBoard board = unlines [ show n ++ " : " ++ replicate size '*' ++ " (" ++ sho
 
 parseNumber :: String -> Maybe Int
 parseNumber input = case reads input of
-                     [(n, "")] -> Just n
-                     _ -> Nothing
+                    [(n, "")] -> Just n
+                    _ -> Nothing
 
 parseTuple :: String -> Maybe (Int, Int)
 parseTuple input = case input of
                     '(':rest -> case span (/= ',') rest of
-                                 (aStr, ',':bRest) -> case span (/= ')') bRest of
+                                (aStr, ',':bRest) -> case span (/= ')') bRest of
                                                       (bStr, ")") -> do
                                                         a <- parseNumber aStr
                                                         b <- parseNumber bStr
                                                         return (a, b)
                                                       _ -> Nothing
-                                 _ -> Nothing
+                                _ -> Nothing
                     _ -> Nothing
 
 findRow :: Int -> Board -> Maybe Row
@@ -173,8 +173,8 @@ gameLoop [boardStr, playerStr, modeStr, firstMoveStr, errorMsg, selectedRowStr] 
         "q" -> showMenu currentMode ""
         _ -> case parseNumber input of
           Just rowNum | case findRow rowNum board of
-                         Just size -> size >= 3
-                         Nothing -> False -> 
+                        Just size -> size >= 3
+                        Nothing -> False -> 
             askDivision [boardStr, playerStr, modeStr, "False", "", show rowNum]
           _ -> 
             gameLoop [boardStr, playerStr, modeStr, "False", "La fila elegida no existe o no se puede dividir (debe tener más de dos monedas).", "-1"]
